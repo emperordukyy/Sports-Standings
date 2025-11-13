@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Standings Manager — Pro</title>
+<style>
+  :root {
+    --bg: #0f1217; --panel: #151a22; --text: #e6e6e6; --muted: #9aa3ad; --accent: #4f7cff; --accent-2: #22c55e;
+    --danger: #ef4444; --border: #1f2530; --shadow: 0 10px 30px rgba(0,0,0,0.4); --ring: 0 0 0 2px rgba(79,124,255,0.3);
+    --good: #16a34a; --bad: #dc2626; --yellow: #f59e0b;
+  }
+  [data-theme="light"] {
+    --bg: #f6f8fb; --panel: #ffffff; --text: #0c0c0d; --muted: #556170; --accent: #3163ff; --accent-2: #0f9d58;
+    --danger: #d32f2f; --border: #e6eaf0; --shadow: 0 12px 24px rgba(14,18,22,0.08); --ring: 0 0 0 2px rgba(49,99,255,0.2);
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans"; }
+  * { box-sizing: border-box; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 16px 14px calc(90px + env(safe-area-inset-bottom)); }
+  header { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 16px; }
+  @media (min-width: 900px) { header { grid-template-columns: 1fr auto; align-items: center; } }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: var(--shadow); }
+  h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    appearance: none; border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    border-radius: 12px; padding: 10px 14px; font-size: 14px; cursor: pointer; transition: transform .08s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    touch-action: manipulation;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(180deg, var(--accent), #3b5df1); border-color: transparent; color: #fff; box-shadow: 0 8px 24px rgba(79,124,255,0.35); }
+  .btn.success { background: linear-gradient(180deg, var(--accent-2), #18a34a); border-color: transparent; color: #fff; box-shadow: 0 8px 24px rgba(34,197,94,0.3); }
+  .btn.danger { background: var(--danger); color: #fff; border-color: transparent; box-shadow: 0 8px 24px rgba(239,68,68,0.3); }
+  .btn.ghost { background: var(--panel); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+  .section-title { font-size: 14px; color: var(--muted); letter-spacing: 0.3px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1.6fr; } }
+  .form { padding: 12px 16px 16px; display: grid; gap: 10px; }
+  .field { display: grid; gap: 6px; }
+  .label { font-size: 12px; color: var(--muted); }
+  .input, .select, .file, .textarea {
+    width: 100%; border-radius: 12px; border: 1px solid var(--border); background: #0c1015; color: var(--text);
+    padding: 10px 12px; font-size: 15px; outline: none; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  [data-theme="light"] .input, [data-theme="light"] .select, [data-theme="light"] .file, [data-theme="light"] .textarea { background: #f8fafc; }
+  .input:focus, .select:focus, .file:focus, .textarea:focus { border-color: var(--accent); box-shadow: var(--ring); }
+  .row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 640px) { .row { grid-template-columns: 1fr 1fr; } }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .tabs { display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab { padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); color: var(--text); font-size: 13px; cursor: pointer; }
+  .tab.active { background: linear-gradient(180deg, var(--accent), #3b5df1); border-color: transparent; color: #fff; }
+
+  .standings { padding: 8px 8px 16px; }
+  .table { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+  .thead th { font-size: 12px; color: var(--muted); font-weight: 600; padding: 10px 12px; text-align: left; }
+  .row-item { background: #0c1015; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); transition: transform .22s ease, box-shadow .22s ease, background .2s ease, border-color .2s ease; position: relative; }
+  [data-theme="light"] .row-item { background: #ffffff; }
+  .row-item:hover { transform: translateY(-2px); box-shadow: 0 16px 28px rgba(0,0,0,0.25); }
+  .row-inner { display: grid; grid-template-columns: 44px 1.2fr 0.6fr 0.5fr 0.5fr 0.7fr 0.8fr 0.8fr 1fr; align-items: center; gap: 10px; padding: 10px 10px; }
+  @media (max-width: 900px) {
+    .thead .col-city, .thead .col-loss, .thead .col-diff { display: none; }
+    .row-inner { grid-template-columns: 44px 1fr 0.6fr 0.6fr 0.7fr 0.8fr 1fr; }
+    .col-city, .col-loss, .col-diff { display: none; }
+  }
+  .team-logo { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); object-fit: cover; background: #0c1015; }
+  .team-name { font-weight: 700; font-size: 15px; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .wl { font-weight: 600; font-feature-settings: "tnum" 1; }
+  .win { color: var(--good); } .loss { color: var(--bad); } .diff { color: var(--yellow); }
+  .controls { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 38px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; transition: transform .08s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    touch-action: manipulation;
+  }
+  .icon-btn:hover { transform: translateY(-1px); }
+  .icon-btn.win { background: #0d1a12; border-color: #173620; color: var(--good); }
+  .icon-btn.loss { background: #1a0d0d; border-color: #362017; color: var(--bad); }
+  .icon-btn.remove { color: var(--danger); }
+  .icon-btn.small { min-width: 30px; height: 30px; border-radius: 9px; }
+
+  .footer { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; border: 1px dashed var(--border); padding: 8px 10px; color: var(--muted); font-size: 12px; }
+  .row-item.motion { transition: transform .25s ease, opacity .25s ease; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease; z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-2px); pointer-events: auto; }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 60; }
+  .modal-backdrop.show { opacity: 1; pointer-events: auto; }
+  .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, 92vw); max-height: 80vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); z-index: 70; display: none; }
+  .modal.show { display: block; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .modal-body { padding: 12px 16px 16px; display: grid; gap: 12px; }
+  .game-list { display: grid; gap: 8px; }
+  .game-item { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 8px; align-items: center; background: #0c1015; border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; font-size: 12px; color: var(--muted); }
+  .dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 10px; text-align: center; color: var(--muted); }
+
+  /* Bracket */
+  .bracket { padding: 12px; display: grid; gap: 12px; }
+  .match { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: #0c1015; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .advance-btn { padding: 6px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="container" id="app" data-theme="dark">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>Standings Manager — Pro</h1>
+        <div class="sub">Divisions, playoffs (best-of-N), H2H, CSV, game scores, mobile-friendly.</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn ghost" id="themeToggle" aria-label="Toggle theme">Toggle theme</button>
+      <button class="btn primary" id="saveBtn">Copy save code</button>
+      <button class="btn" id="loadBtn">Load from code</button>
+      <button class="btn" id="exportCsvBtn">Export CSV</button>
+      <button class="btn" id="importCsvBtn">Import CSV</button>
+      <button class="btn danger" id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="section-title">Setup</div>
+      <div class="form">
+        <div class="field">
+          <label class="label" for="leagueName">Standings name</label>
+          <input class="input" id="leagueName" placeholder="e.g., Sunday League, Eastern Conference…" />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label" for="sortMode">Sort mode</label>
+            <select class="select" id="sortMode">
+              <option value="wins">Wins (desc)</option>
+              <option value="pct">Win percentage (desc)</option>
+              <option value="diff">Win differential (W−L, desc)</option>
+              <option value="alpha">Alphabetical (A→Z)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="tieBreak">Tiebreaker</label>
+            <select class="select" id="tieBreak">
+              <option value="losses">Fewer losses</option>
+              <option value="alpha">Alphabetical</option>
+              <option value="h2h">Head-to-head</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label" for="divisionName">Add division</label>
+            <div style="display:flex; gap:8px;">
+              <input class="input" id="divisionName" placeholder="e.g., East" />
+              <button class="btn success" id="addDivisionBtn" title="Add division">Add</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="divisionSelect">Assign division</label>
+            <select class="select" id="divisionSelect"></select>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border)" />
+
+        <div class="field">
+          <label class="label" for="teamName">Team name</label>
+          <input class="input" id="teamName" placeholder="Enter team name…" />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="teamCity">City/short label (optional)</label>
+            <input class="input" id="teamCity" placeholder="e.g., Boston" />
+          </div>
+          <div class="field">
+            <label class="label" for="teamLogo">Team logo (PNG/JPG/SVG)</label>
+            <input class="file" type="file" id="teamLogo" accept="image/*" />
+            <div id="logoDrop" class="dropzone">Drag & drop logo here</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="trophyCount">Trophies (initial)</label>
+            <input class="input" id="trophyCount" type="number" min="0" value="0" />
+          </div>
+          <div class="field">
+            <label class="label" for="playoffsEnabled">Playoffs</label>
+            <select class="select" id="playoffsEnabled">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="seriesLength">Series length</label>
+            <select class="select" id="seriesLength">
+              <option value="1">Best of 1</option>
+              <option value="3">Best of 3</option>
+              <option value="5">Best of 5</option>
+              <option value="7">Best of 7</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="seasonName">Season name</label>
+            <input class="input" id="seasonName" placeholder="e.g., 2025" />
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn success" id="addTeamBtn">Add team</button>
+          <button class="btn" id="newSeasonBtn">New season</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-title">Standings</div>
+
+      <div class="tabs" id="divisionTabs"></div>
+
+      <div class="standings">
+        <table class="table">
+          <thead class="thead">
+            <tr>
+              <th>Logo</th>
+              <th>Team</th>
+              <th class="col-city">Division</th>
+              <th>W</th>
+              <th class="col-loss">L</th>
+              <th>Pct</th>
+              <th class="col-diff">Diff</th>
+              <th>Streak</th>
+              <th>Last 10</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="footer">
+        <div><span id="leagueTitle">Untitled Standings</span> • <span id="seasonLabel">Season —</span></div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <div class="chip"><strong>Total teams:</strong> <span id="count" style="margin-left:6px;">0</span></div>
+          <div class="chip"><strong>Playoffs:</strong> <span id="playoffsChip" style="margin-left:6px;">Off</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="playoffsPanel" style="margin-top:14px; display:none;">
+    <div class="section-title">Playoffs bracket</div>
+    <div class="bracket" id="bracket"></div>
+    <div class="footer">
+      <div class="chip"><strong>Round:</strong> <span id="roundLabel" style="margin-left:6px;">—</span></div>
+      <button class="btn" id="regenBracketBtn">Regenerate bracket</button>
+    </div>
+  </div>
+
+  <!-- Modal: Team details -->
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="modal" id="teamModal" role="dialog" aria-modal="true" aria-labelledby="teamModalTitle">
+    <div class="modal-header">
+      <div>
+        <div class="team-name" id="teamModalTitle">Team</div>
+        <div class="muted" id="teamModalSub">—</div>
+      </div>
+      <button class="btn" id="closeModalBtn">Close</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="pill"><strong>Record:</strong> <span id="modalRecord"></span></span>
+        <span class="pill"><strong>Pct:</strong> <span id="modalPct"></span></span>
+        <span class="pill"><strong>Streak:</strong> <span id="modalStreak"></span></span>
+        <span class="pill"><strong>Last 10:</strong> <span id="modalLast10"></span></span>
+        <span class="pill"><strong>Trophies:</strong> <span id="modalTrophies"></span></span>
+      </div>
+
+      <div class="field">
+        <label class="label">Add game (easy entry)</label>
+        <div class="row">
+          <div class="field">
+            <label class="label" for="opponentSelect">Opponent</label>
+            <select class="select" id="opponentSelect"></select>
+          </div>
+          <div class="field">
+            <label class="label">Scores</label>
+            <div style="display:flex; gap:8px;">
+              <input class="input" id="gameScoreTeam" type="number" min="0" placeholder="Team score" />
+              <input class="input" id="gameScoreOpp" type="number" min="0" placeholder="Opponent score" />
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn success" id="addGameBtn">Add game</button>
+        </div>
+      </div>
+
+      <div class="section-title">Game history</div>
+      <div class="game-list" id="gameList"></div>
+
+      <div class="actions" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="exportTeamCsvBtn">Export team CSV</button>
+          <button class="btn" id="deleteLastGameBtn">Delete last game</button>
+        </div>
+        <button class="btn danger" id="deleteTeamBtn">Delete team</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+  const state = {
+    meta: { name: "Untitled Standings", sort: "wins", tieBreak: "losses", theme: "dark", playoffs: "off", activeDivision: "all", seriesLength: 1, seasonName: "—", lastSavedCode: "" },
+    divisions: [], // {id, name}
+    teams: [], // {id, name, city, divisionId, logoDataUrl, wins, losses, trophies, history[], games[], createdAt}
+    playoffs: { round: 0, matches: [] }, // matches: [{aTeamId, bTeamId, winnerId, divId, seriesWins: {[teamId]: n}, seriesLength}]
+    seasons: [] // archive: {seasonName, teamsSnapshot[], trophiesByTeamId, date}
+  };
+
+  const el = {
+    app: document.getElementById("app"),
+    leagueName: document.getElementById("leagueName"),
+    sortMode: document.getElementById("sortMode"),
+    tieBreak: document.getElementById("tieBreak"),
+    divisionName: document.getElementById("divisionName"),
+    addDivisionBtn: document.getElementById("addDivisionBtn"),
+    divisionSelect: document.getElementById("divisionSelect"),
+    teamName: document.getElementById("teamName"),
+    teamCity: document.getElementById("teamCity"),
+    teamLogo: document.getElementById("teamLogo"),
+    logoDrop: document.getElementById("logoDrop"),
+    trophyCount: document.getElementById("trophyCount"),
+    playoffsEnabled: document.getElementById("playoffsEnabled"),
+    seriesLength: document.getElementById("seriesLength"),
+    seasonName: document.getElementById("seasonName"),
+    addTeamBtn: document.getElementById("addTeamBtn"),
+    newSeasonBtn: document.getElementById("newSeasonBtn"),
+    divisionTabs: document.getElementById("divisionTabs"),
+    tbody: document.getElementById("tbody"),
+    leagueTitle: document.getElementById("leagueTitle"),
+    seasonLabel: document.getElementById("seasonLabel"),
+    count: document.getElementById("count"),
+    playoffsChip: document.getElementById("playoffsChip"),
+    themeToggle: document.getElementById("themeToggle"),
+    saveBtn: document.getElementById("saveBtn"),
+    loadBtn: document.getElementById("loadBtn"),
+    exportCsvBtn: document.getElementById("exportCsvBtn"),
+    importCsvBtn: document.getElementById("importCsvBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    toast: document.getElementById("toast"),
+    playoffsPanel: document.getElementById("playoffsPanel"),
+    bracket: document.getElementById("bracket"),
+    roundLabel: document.getElementById("roundLabel"),
+    regenBracketBtn: document.getElementById("regenBracketBtn"),
+    // Modal
+    modalBackdrop: document.getElementById("modalBackdrop"),
+    teamModal: document.getElementById("teamModal"),
+    closeModalBtn: document.getElementById("closeModalBtn"),
+    teamModalTitle: document.getElementById("teamModalTitle"),
+    teamModalSub: document.getElementById("teamModalSub"),
+    modalRecord: document.getElementById("modalRecord"),
+    modalPct: document.getElementById("modalPct"),
+    modalStreak: document.getElementById("modalStreak"),
+    modalLast10: document.getElementById("modalLast10"),
+    modalTrophies: document.getElementById("modalTrophies"),
+    opponentSelect: document.getElementById("opponentSelect"),
+    gameScoreTeam: document.getElementById("gameScoreTeam"),
+    gameScoreOpp: document.getElementById("gameScoreOpp"),
+    addGameBtn: document.getElementById("addGameBtn"),
+    gameList: document.getElementById("gameList"),
+    exportTeamCsvBtn: document.getElementById("exportTeamCsvBtn"),
+    deleteLastGameBtn: document.getElementById("deleteLastGameBtn"),
+    deleteTeamBtn: document.getElementById("deleteTeamBtn"),
+  };
+
+  const STORAGE_KEY = "standings-manager-pro-v1";
+
+  function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
+  function restore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!saved || !saved.meta) return;
+      Object.assign(state.meta, saved.meta);
+      state.divisions = Array.isArray(saved.divisions) ? saved.divisions : [];
+      state.teams = Array.isArray(saved.teams) ? saved.teams : [];
+      state.playoffs = saved.playoffs || { round: 0, matches: [] };
+      state.seasons = Array.isArray(saved.seasons) ? saved.seasons : [];
+      applyMetaToUI();
+      render(true);
+    } catch {}
+  }
+
+  // Utils
+  function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  function toast(msg) { el.toast.textContent = msg; el.toast.classList.add("show"); setTimeout(() => el.toast.classList.remove("show"), 1750); }
+  function dataUrlFromFile(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
+  function escapeHtml(str){ if(!str) return ""; return str.replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[s])); }
+  function download(filename, text) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"})); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+  // Stats helpers
+  function winPct(t){ const g = t.wins + t.losses; return g === 0 ? 0 : t.wins / g; }
+  function diff(t){ return t.wins - t.losses; }
+  function streak(t){ const h = t.history || []; if (h.length === 0) return "—"; let s = 0; const kind = h[h.length-1]; for (let i=h.length-1;i>=0;i--){ if(h[i]===kind) s++; else break; } return kind + s; }
+  function lastTen(t){ const h = t.history || []; const recent = h.slice(-10); const w = recent.filter(x => x === "W").length; const l = recent.filter(x => x === "L").length; return recent.length ? `${w}-${l}` : "—"; }
+
+  // Head-to-head record
+  function h2hRecord(aId, bId){
+    let aWins=0, bWins=0;
+    state.teams.forEach(t => {
+      (t.games || []).forEach(g => {
+        if ((g.teamId===aId && g.opponentId===bId) || (g.teamId===bId && g.opponentId===aId)) {
+          const aScore = g.teamId===aId ? g.teamScore : g.opponentScore;
+          const bScore = g.teamId===aId ? g.opponentScore : g.teamScore;
+          if (aScore>bScore) aWins++; else if (bScore>aScore) bWins++;
+        }
+      });
+    });
+    return { aWins, bWins };
+  }
+
+  // Sorting with tiebreaks
+  function compare(a, b) {
+    const mode = state.meta.sort;
+    let primary = 0;
+    if (mode === "wins") primary = b.wins - a.wins;
+    else if (mode === "pct") primary = winPct(b) - winPct(a);
+    else if (mode === "diff") primary = diff(b) - diff(a);
+    else if (mode === "alpha") primary = a.name.localeCompare(b.name);
+    if (primary !== 0) return primary;
+    const tie = state.meta.tieBreak;
+    if (tie === "losses") return a.losses - b.losses;
+    if (tie === "alpha") return a.name.localeCompare(b.name);
+    if (tie === "h2h") {
+      const { aWins, bWins } = h2hRecord(a.id, b.id);
+      if (aWins !== bWins) return bWins - aWins; // favor who has H2H edge (b over a if bWins>aWins)
+    }
+    return 0;
+  }
+  function sortTeams(arr){ arr.sort(compare); }
+
+  // Divisions
+  function addDivision(name){
+    const n = name.trim();
+    if (!n) { toast("Enter a division name."); return; }
+    if (state.divisions.some(d => d.name.toLowerCase() === n.toLowerCase())) { toast("Division already exists."); return; }
+    state.divisions.push({ id: uid(), name: n });
+    state.meta.activeDivision = "all";
+    toast("Division added."); render(true);
+  }
+
+  // Playoffs with best-of-N series
+  function generateSeeds() {
+    const divisions = state.divisions.length ? state.divisions : [{id:"all", name:"All"}];
+    const seedsByDiv = {};
+    divisions.forEach(d => {
+      const teams = state.teams.filter(t => (state.divisions.length ? t.divisionId === d.id : true));
+      sortTeams(teams);
+      seedsByDiv[d.id] = teams.map(t => t.id);
+    });
+    return seedsByDiv;
+  }
+  function generateBracket() {
+    const seedsByDiv = generateSeeds();
+    const matches = [];
+    const seriesLength = Number(state.meta.seriesLength || 1);
+    Object.keys(seedsByDiv).forEach(divId => {
+      const seeds = seedsByDiv[divId];
+      if (seeds.length >= 2) {
+        const pairs = [];
+        if (seeds.length >= 4) { pairs.push([seeds[0], seeds[3]]); pairs.push([seeds[1], seeds[2]]); }
+        else { pairs.push([seeds[0], seeds[1]]); }
+        pairs.forEach(([a,b]) => matches.push({ aTeamId: a, bTeamId: b, winnerId: null, divId, seriesWins: {[a]:0,[b]:0}, seriesLength }));
+      }
+    });
+    state.playoffs = { round: 1, matches };
+    toast("Bracket generated.");
+  }
+  function reportSeriesWin(matchIndex, winningTeamId){
+    const m = state.playoffs.matches[matchIndex];
+    if (!m) return;
+    m.seriesWins[winningTeamId] = (m.seriesWins[winningTeamId] || 0) + 1;
+    const needed = Math.ceil(m.seriesLength / 2);
+    if (m.seriesWins[winningTeamId] >= needed) {
+      m.winnerId = winningTeamId;
+      toast("Series winner decided.");
+      proceedPlayoffsIfReady();
+    }
+    render(true);
+  }
+  function proceedPlayoffsIfReady(){
+    if (!state.playoffs.matches.every(x => x.winnerId)) return;
+    const byDiv = {};
+    state.playoffs.matches.forEach(mt => { byDiv[mt.divId] = byDiv[mt.divId] || []; byDiv[mt.divId].push(mt.winnerId); });
+    const nextMatches = [];
+    Object.keys(byDiv).forEach(divId => {
+      const winners = byDiv[divId];
+      if (winners.length >= 2) {
+        for (let i = 0; i < winners.length; i += 2) {
+          const a = winners[i], b = winners[i+1];
+          if (b) nextMatches.push({ aTeamId: a, bTeamId: b, winnerId: null, divId, seriesWins: {[a]:0,[b]:0}, seriesLength: Number(state.meta.seriesLength || 1) });
+        }
+      } else if (winners.length === 1) {
+        const champ = state.teams.find(t => t.id === winners[0]);
+        if (champ) { champ.trophies = (champ.trophies || 0) + 1; toast(`${champ.name} wins a trophy!`); }
+      }
+    });
+    if (nextMatches.length > 0) { state.playoffs = { round: state.playoffs.round + 1, matches: nextMatches }; }
+    else { toast("Playoffs complete."); state.playoffs.round = 0; state.playoffs.matches = []; }
+  }
+
+  // Animation
+  function animateReorder(newOrderIds) {
+    const rows = Array.from(el.tbody.children);
+    const firstRects = new Map();
+    rows.forEach(r => firstRects.set(r.dataset.id, r.getBoundingClientRect()));
+    const frag = document.createDocumentFragment();
+    newOrderIds.forEach(id => {
+      const row = rows.find(r => r.dataset.id === id);
+      if (row) frag.appendChild(row);
+    });
+    el.tbody.appendChild(frag);
+    const lastRects = new Map();
+    const newRows = Array.from(el.tbody.children);
+    newRows.forEach(r => lastRects.set(r.dataset.id, r.getBoundingClientRect()));
+    newRows.forEach(r => {
+      const id = r.dataset.id;
+      const first = firstRects.get(id);
+      const last = lastRects.get(id);
+      if (!first || !last) return;
+      const dx = first.left - last.left, dy = first.top - last.top;
+      r.classList.add("motion"); r.style.transform = `translate(${dx}px, ${dy}px)`; r.style.opacity = "0.6";
+      requestAnimationFrame(() => { r.style.transform = ""; r.style.opacity = ""; });
+      r.addEventListener("transitionend", () => r.classList.remove("motion"), { once: true });
+    });
+  }
+
+  // Render
+  function buildDivisionTabs() {
+    el.divisionTabs.innerHTML = "";
+    const allBtn = document.createElement("button");
+    allBtn.className = "tab" + (state.meta.activeDivision === "all" ? " active" : "");
+    allBtn.textContent = "All";
+    allBtn.onclick = () => { state.meta.activeDivision = "all"; render(); };
+    el.divisionTabs.appendChild(allBtn);
+    state.divisions.forEach(d => {
+      const btn = document.createElement("button");
+      btn.className = "tab" + (state.meta.activeDivision === d.id ? " active" : "");
+      btn.textContent = d.name;
+      btn.onclick = () => { state.meta.activeDivision = d.id; render(); };
+      el.divisionTabs.appendChild(btn);
+    });
+  }
+
+  function render(skipAnimation = false) {
+    buildDivisionTabs();
+    el.divisionSelect.innerHTML = "";
+    const noneOpt = document.createElement("option"); noneOpt.value = ""; noneOpt.textContent = state.divisions.length ? "Select division…" : "No divisions";
+    el.divisionSelect.appendChild(noneOpt);
+    state.divisions.forEach(d => { const opt = document.createElement("option"); opt.value = d.id; opt.textContent = d.name; el.divisionSelect.appendChild(opt); });
+
+    let teamsView = state.teams.filter(t => state.meta.activeDivision === "all" ? true : t.divisionId === state.meta.activeDivision);
+    sortTeams(teamsView);
+
+    const prevOrder = Array.from(el.tbody.children).map(r => r.dataset.id);
+    el.tbody.innerHTML = "";
+    teamsView.forEach(team => {
+      const tr = document.createElement("tr");
+      tr.className = "row-item";
+      tr.dataset.id = team.id;
+      tr.innerHTML = `
+        <td><img class="team-logo" alt="Logo" src="${team.logoDataUrl || ""}"></td>
+        <td class="team-cell" data-id="${team.id}" style="cursor:pointer;">
+          <div class="team-name">${escapeHtml(team.name)}</div>
+          <div class="muted">${escapeHtml(team.city || "")}</div>
+        </td>
+        <td class="col-city"><span class="muted">${escapeHtml(getDivisionName(team.divisionId))}</span></td>
+        <td class="wl win">${team.wins}</td>
+        <td class="wl loss col-loss">${team.losses}</td>
+        <td class="wl">${(winPct(team) || 0).toFixed(3)}</td>
+        <td class="diff col-diff">${diff(team)}</td>
+        <td>${streak(team)}</td>
+        <td>${lastTen(team)}</td>
+        <td>
+          <div class="controls">
+            <button class="icon-btn win" title="Add win" data-action="win" aria-label="Add win">+W</button>
+            <button class="icon-btn loss" title="Add loss" data-action="loss" aria-label="Add loss">+L</button>
+            <button class="icon-btn small" title="Undo win" data-action="unwin" aria-label="Undo win">−W</button>
+            <button class="icon-btn small" title="Undo loss" data-action="unloss" aria-label="Undo loss">−L</button>
+            <button class="icon-btn" title="Add trophy" data-action="trophy" aria-label="Add trophy">🏆</button>
+            <button class="icon-btn remove" title="Remove team" data-action="remove" aria-label="Remove team">✕</button>
+          </div>
+        </td>
+      `;
+      el.tbody.appendChild(tr);
+      tr.querySelectorAll(".icon-btn").forEach(btn => btn.addEventListener("click", () => handleAction(team.id, btn.dataset.action)));
+      tr.querySelector(".team-cell").addEventListener("click", () => openTeamModal(team.id));
+    });
+
+    el.leagueTitle.textContent = state.meta.name || "Untitled Standings";
+    el.seasonLabel.textContent = `Season ${state.meta.seasonName || "—"}`;
+    el.count.textContent = String(state.teams.length);
+    el.playoffsChip.textContent = state.meta.playoffs === "on" ? "On" : "Off";
+
+    // Playoffs panel
+    el.playoffsPanel.style.display = state.meta.playoffs === "on" ? "" : "none";
+    if (state.meta.playoffs === "on") renderBracket();
+
+    persist();
+
+    const newOrder = teamsView.map(t => t.id);
+    if (!skipAnimation && prevOrder.length === newOrder.length && prevOrder.some((id, i) => id !== newOrder[i])) {
+      animateReorder(newOrder);
+    }
+  }
+
+  function getDivisionName(id){
+    if (!id) return "—";
+    const d = state.divisions.find(x => x.id === id);
+    return d ? d.name : "—";
+  }
+
+  function renderBracket(){
+    el.bracket.innerHTML = "";
+    if (!state.playoffs.matches || state.playoffs.matches.length === 0) {
+      el.roundLabel.textContent = "—";
+      generateBracket();
+    }
+    el.roundLabel.textContent = state.playoffs.round ? `Round ${state.playoffs.round}` : "—";
+
+    state.playoffs.matches.forEach((m, i) => {
+      const a = state.teams.find(t => t.id === m.aTeamId);
+      const b = state.teams.find(t => t.id === m.bTeamId);
+      const card = document.createElement("div");
+      card.className = "match";
+      const aWins = m.seriesWins[a?.id || ""] || 0;
+      const bWins = m.seriesWins[b?.id || ""] || 0;
+      card.innerHTML = `
+        <div>
+          <div class="team-name">${escapeHtml(a?.name || "TBD")}</div>
+          <div class="muted">Wins: ${aWins}/${m.seriesLength}</div>
+        </div>
+        <div style="text-align:center;">
+          <button class="btn advance-btn" data-adv="${a?.id || ""}">+ ${escapeHtml(a?.name || "A")}</button>
+          <button class="btn advance-btn" data-adv="${b?.id || ""}">+ ${escapeHtml(b?.name || "B")}</button>
+        </div>
+        <div style="text-align:right;">
+          <div class="team-name">${escapeHtml(b?.name || "TBD")}</div>
+          <div class="muted">Wins: ${bWins}/${m.seriesLength}</div>
+        </div>
+      `;
+      card.querySelectorAll(".advance-btn").forEach(btn => {
+        btn.addEventListener("click", () => reportSeriesWin(i, btn.dataset.adv));
+      });
+      el.bracket.appendChild(card);
+    });
+  }
+
+  // Actions
+  function recordResult(t, kind){ t.history = t.history || []; t.history.push(kind); }
+  function handleAction(id, action){
+    const t = state.teams.find(x => x.id === id);
+    if (!t) return;
+    if (action === "win") { t.wins++; recordResult(t, "W"); }
+    else if (action === "loss") { t.losses++; recordResult(t, "L"); }
+    else if (action === "unwin") { if (t.wins > 0) { t.wins--; removeLast(t, "W"); } }
+    else if (action === "unloss") { if (t.losses > 0) { t.losses--; removeLast(t, "L"); } }
+    else if (action === "trophy") { t.trophies = (t.trophies || 0) + 1; toast("Trophy added."); }
+    else if (action === "remove") { state.teams = state.teams.filter(x => x.id !== id); toast("Team removed."); }
+    render();
+  }
+  function removeLast(t, kind){
+    if (!t.history || t.history.length === 0) return;
+    for (let i = t.history.length - 1; i >= 0; i--) { if (t.history[i] === kind) { t.history.splice(i, 1); break; } }
+  }
+
+  // Team modal
+  let modalTeamId = null;
+  function openTeamModal(teamId){
+    modalTeamId = teamId;
+    const t = state.teams.find(x => x.id === teamId);
+    if (!t) return;
+    el.teamModalTitle.textContent = t.name;
+    el.teamModalSub.textContent = `${t.city || "—"} • ${getDivisionName(t.divisionId) || "—"}`;
+    el.modalRecord.textContent = `${t.wins}-${t.losses}`;
+    el.modalPct.textContent = (winPct(t) || 0).toFixed(3);
+    el.modalStreak.textContent = streak(t);
+    el.modalLast10.textContent = lastTen(t);
+    el.modalTrophies.textContent = t.trophies || 0;
+
+    // Opponents list
+    el.opponentSelect.innerHTML = "";
+    const none = document.createElement("option"); none.value = ""; none.textContent = "Select opponent"; el.opponentSelect.appendChild(none);
+    state.teams.filter(x => x.id !== teamId).forEach(o => { const opt = document.createElement("option"); opt.value = o.id; opt.textContent = o.name; el.opponentSelect.appendChild(opt); });
+
+    // Render game history
+    renderGameHistory(t);
+
+    el.modalBackdrop.classList.add("show");
+    el.teamModal.classList.add("show");
+  }
+  function closeTeamModal(){
+    modalTeamId = null;
+    el.modalBackdrop.classList.remove("show");
+    el.teamModal.classList.remove("show");
+  }
+  el.modalBackdrop.addEventListener("click", closeTeamModal);
+  el.closeModalBtn.addEventListener("click", closeTeamModal);
+
+  function renderGameHistory(team){
+    el.gameList.innerHTML = "";
+    const games = team.games || [];
+    if (games.length === 0) {
+      const empty = document.createElement("div"); empty.className = "muted"; empty.textContent = "No games yet.";
+      el.gameList.appendChild(empty); return;
+    }
+    games.forEach((g, idx) => {
+      const opp = state.teams.find(x => x.id === g.opponentId);
+      const w = g.teamScore > g.opponentScore;
+      const item = document.createElement("div");
+      item.className = "game-item";
+      item.innerHTML = `
+        <div>${escapeHtml(team.name)} <strong>${g.teamScore}</strong></div>
+        <div class="${w ? 'win' : 'loss'}">${w ? 'W' : 'L'}</div>
+        <div style="text-align:right;"><strong>${g.opponentScore}</strong> ${escapeHtml(opp?.name || "TBD")}</div>
+        <div class="muted">${new Date(g.date).toLocaleString()}</div>
+      `;
+      el.gameList.appendChild(item);
+    });
+  }
+
+  function addGameForTeam(teamId, opponentId, teamScore, oppScore){
+    const team = state.teams.find(t => t.id === teamId);
+    const opp = state.teams.find(t => t.id === opponentId);
+    if (!team || !opp) { toast("Select a valid opponent."); return; }
+    const ts = parseInt(teamScore, 10), os = parseInt(oppScore, 10);
+    if (!Number.isFinite(ts) || !Number.isFinite(os)) { toast("Enter valid scores."); return; }
+
+    team.games = team.games || [];
+    opp.games = opp.games || [];
+    const now = Date.now();
+    const gameA = { id: uid(), teamId, opponentId, teamScore: ts, opponentScore: os, date: now };
+    const gameB = { id: gameA.id, teamId: opponentId, opponentId: teamId, teamScore: os, opponentScore: ts, date: now };
+    team.games.push(gameA); opp.games.push(gameB);
+
+    if (ts > os) { team.wins++; opp.losses++; recordResult(team, "W"); recordResult(opp, "L"); }
+    else if (os > ts) { opp.wins++; team.losses++; recordResult(team, "L"); recordResult(opp, "W"); }
+    else { toast("Tie recorded as no change to W/L."); } // ties not changing W/L; adjust if needed
+
+    render(true);
+    renderGameHistory(team);
+    toast("Game added.");
+  }
+
+  el.addGameBtn.addEventListener("click", () => {
+    if (!modalTeamId) return;
+    const oppId = el.opponentSelect.value;
+    const ts = el.gameScoreTeam.value, os = el.gameScoreOpp.value;
+    addGameForTeam(modalTeamId, oppId, ts, os);
+    el.gameScoreTeam.value = ""; el.gameScoreOpp.value = "";
+  });
+
+  el.deleteLastGameBtn.addEventListener("click", () => {
+    if (!modalTeamId) return;
+    const t = state.teams.find(x => x.id === modalTeamId);
+    if (!t || !t.games || t.games.length === 0) { toast("No games to delete."); return; }
+    const last = t.games[t.games.length - 1];
+    const opp = state.teams.find(x => x.id === last.opponentId);
+    // Roll back W/L
+    const tw = last.teamScore > last.opponentScore;
+    if (tw) { t.wins = Math.max(0, t.wins - 1); opp.losses = Math.max(0, opp.losses - 1); removeLast(t, "W"); removeLast(opp, "L"); }
+    else if (last.opponentScore > last.teamScore) { t.losses = Math.max(0, t.losses - 1); opp.wins = Math.max(0, opp.wins - 1); removeLast(t, "L"); removeLast(opp, "W"); }
+    // Remove twin game entries
+    t.games.pop();
+    if (opp && opp.games) {
+      const idx = opp.games.findIndex(g => g.id === last.id);
+      if (idx >= 0) opp.games.splice(idx, 1);
+    }
+    render(true); renderGameHistory(t); toast("Last game deleted.");
+  });
+
+  el.deleteTeamBtn.addEventListener("click", () => {
+    if (!modalTeamId) return;
+    const t = state.teams.find(x => x.id === modalTeamId);
+    if (!t) return;
+    if (!confirm(`Delete ${t.name}? This removes games and stats.`)) return;
+    // Remove mirrored games from opponents
+    (t.games || []).forEach(g => {
+      const opp = state.teams.find(x => x.id === g.opponentId);
+      if (opp && opp.games) { const idx = opp.games.findIndex(og => og.id === g.id); if (idx >= 0) opp.games.splice(idx, 1); }
+    });
+    state.teams = state.teams.filter(x => x.id !== modalTeamId);
+    closeTeamModal(); render(); toast("Team deleted.");
+  });
+
+  // UI bindings
+  el.leagueName.addEventListener("input", () => { state.meta.name = el.leagueName.value.trim() || "Untitled Standings"; render(true); markUnsaved(); });
+  el.sortMode.addEventListener("change", () => { state.meta.sort = el.sortMode.value; render(); markUnsaved(); });
+  el.tieBreak.addEventListener("change", () => { state.meta.tieBreak = el.tieBreak.value; render(); markUnsaved(); });
+  el.addDivisionBtn.addEventListener("click", () => { addDivision(el.divisionName.value); markUnsaved(); });
+
+  el.playoffsEnabled.addEventListener("change", () => {
+    state.meta.playoffs = el.playoffsEnabled.value;
+    if (state.meta.playoffs === "on") generateBracket(); else { state.playoffs = { round: 0, matches: [] }; }
+    render(true); markUnsaved();
+  });
+  el.seriesLength.addEventListener("change", () => { state.meta.seriesLength = parseInt(el.seriesLength.value, 10); render(true); markUnsaved(); });
+
+  el.addTeamBtn.addEventListener("click", async () => {
+    const name = el.teamName.value.trim();
+    const city = el.teamCity.value.trim();
+    const divisionId = el.divisionSelect.value || "";
+    const trophies = Math.max(0, parseInt(el.trophyCount.value || "0", 10));
+    if (!name) { toast("Enter a team name."); el.teamName.focus(); return; }
+    let logoDataUrl = "";
+    const file = el.teamLogo.files?.[0] || dropFile;
+    if (file) { try { if (file.size > 1024 * 1024) toast("Logo is large; compress for faster loads."); logoDataUrl = await dataUrlFromFile(file); } catch { logoDataUrl = ""; } }
+    const team = { id: uid(), name, city, divisionId, logoDataUrl, wins: 0, losses: 0, trophies, history: [], games: [], createdAt: Date.now() };
+    state.teams.push(team);
+    el.teamName.value = ""; el.teamCity.value = ""; el.teamLogo.value = ""; el.trophyCount.value = "0"; dropFile = null;
+    toast("Team added."); render(); markUnsaved();
+  });
+
+  el.seasonName.addEventListener("input", () => { state.meta.seasonName = el.seasonName.value.trim() || "—"; el.seasonLabel.textContent = `Season ${state.meta.seasonName}`; markUnsaved(); });
+  el.newSeasonBtn.addEventListener("click", () => {
+    if (!confirm("Start a new season? Teams keep trophies; W/L and games reset.")) return;
+    // Archive snapshot
+    state.seasons.push({
+      seasonName: state.meta.seasonName || "—",
+      teamsSnapshot: state.teams.map(t => ({ id:t.id, name:t.name, wins:t.wins, losses:t.losses, trophies:t.trophies })),
+      date: Date.now()
+    });
+    // Reset W/L and games/history
+    state.teams.forEach(t => { t.wins=0; t.losses=0; t.history=[]; t.games=[]; });
+    toast("New season started.");
+    render(true); markUnsaved();
+  });
+
+  function applyMetaToUI(){
+    el.app.setAttribute("data-theme", state.meta.theme || "dark");
+    el.leagueName.value = state.meta.name || "";
+    el.sortMode.value = state.meta.sort || "wins";
+    el.tieBreak.value = state.meta.tieBreak || "losses";
+    el.playoffsEnabled.value = state.meta.playoffs || "off";
+    el.seriesLength.value = String(state.meta.seriesLength || 1);
+    el.seasonName.value = state.meta.seasonName || "—";
+    el.seasonLabel.textContent = `Season ${state.meta.seasonName || "—"}`;
+  }
+  el.themeToggle.addEventListener("click", () => { state.meta.theme = (state.meta.theme === "dark") ? "light" : "dark"; el.app.setAttribute("data-theme", state.meta.theme); persist(); });
+
+  // Save / Load / Unsaved warning
+  function getSaveCode(){ return JSON.stringify(state); }
+  let hasUnsaved = true;
+  function markUnsaved(){ hasUnsaved = true; }
+  function markSaved(code){ hasUnsaved = false; state.meta.lastSavedCode = code; persist(); }
+
+  el.saveBtn.addEventListener("click", async () => {
+    const code = getSaveCode();
+    try { await navigator.clipboard.writeText(code); toast("Save code copied to clipboard."); markSaved(code); }
+    catch { const ok = prompt("Copy your save code:", code); if (ok !== null) { toast("Save code ready. Copy from the dialog."); markSaved(code); } }
+  });
+  el.loadBtn.addEventListener("click", () => {
+    const raw = prompt("Paste your save code:");
+    if (raw) loadFromCode(raw);
+  });
+
+  function loadFromCode(raw){
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.meta) throw new Error("Invalid");
+      state.meta = {
+        name: parsed.meta.name || "Untitled Standings",
+        sort: parsed.meta.sort || "wins",
+        tieBreak: parsed.meta.tieBreak || "losses",
+        theme: parsed.meta.theme === "light" ? "light" : "dark",
+        playoffs: parsed.meta.playoffs === "on" ? "on" : "off",
+        activeDivision: parsed.meta.activeDivision || "all",
+        seriesLength: Number(parsed.meta.seriesLength || 1),
+        seasonName: parsed.meta.seasonName || "—",
+        lastSavedCode: parsed.meta.lastSavedCode || ""
+      };
+      state.divisions = Array.isArray(parsed.divisions) ? parsed.divisions.map(d => ({ id: d.id || uid(), name: d.name || "Division" })) : [];
+      state.teams = (parsed.teams || []).map(t => ({
+        id: t.id || uid(),
+        name: t.name || "Unnamed",
+        city: t.city || "",
+        divisionId: t.divisionId || "",
+        logoDataUrl: t.logoDataUrl || "",
+        wins: Number.isFinite(t.wins) ? t.wins : 0,
+        losses: Number.isFinite(t.losses) ? t.losses : 0,
+        trophies: Number.isFinite(t.trophies) ? t.trophies : 0,
+        history: Array.isArray(t.history) ? t.history.filter(x => x === "W" || x === "L") : [],
+        games: Array.isArray(t.games) ? t.games.map(g => ({
+          id: g.id || uid(), teamId: g.teamId || t.id, opponentId: g.opponentId || "", teamScore: Number(g.teamScore)||0, opponentScore: Number(g.opponentScore)||0, date: g.date || Date.now()
+        })) : [],
+        createdAt: t.createdAt || Date.now(),
+      }));
+      state.playoffs = parsed.playoffs || { round: 0, matches: [] };
+      state.seasons = Array.isArray(parsed.seasons) ? parsed.seasons : [];
+      applyMetaToUI(); render(true); persist(); toast("Save loaded."); markUnsaved();
+    } catch { toast("Invalid save code."); }
+  }
+
+  window.addEventListener("beforeunload", (e) => {
+    if (hasUnsaved) {
+      e.preventDefault();
+      e.returnValue = "You have unsaved changes. Copy your save code to avoid losing progress.";
+      return "You have unsaved changes. Copy your save code to avoid losing progress.";
+    }
+  });
+
+  // CSV import/export
+  function exportCSV(){
+    const lines = [];
+    lines.push("type,teamId,teamName,opponentId,opponentName,teamScore,opponentScore,date,wins,losses,division,trophies");
+    state.teams.forEach(t => {
+      lines.push(`team,${t.id},"${t.name.replace(/"/g,'""')}",,,,${new Date(t.createdAt).toISOString()},${t.wins},${t.losses},"${getDivisionName(t.divisionId)}",${t.trophies}`);
+      (t.games||[]).forEach(g => {
+        const opp = state.teams.find(x => x.id === g.opponentId);
+        lines.push(`game,${t.id},"${t.name.replace(/"/g,'""')}",${opp?.id||""},"${(opp?.name||"").replace(/"/g,'""')}",${g.teamScore},${g.opponentScore},${new Date(g.date).toISOString()},,,,`);
+      });
+    });
+    download(`${(state.meta.name||'standings').replace(/\s+/g,'_')}_export.csv`, lines.join("\n"));
+  }
+  function importCSVText(text){
+    const rows = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+    if (rows.length <= 1) { toast("CSV is empty."); return; }
+    const header = rows[0].split(",");
+    const get = (cols, name) => cols[header.indexOf(name)] || "";
+    for (let i=1;i<rows.length;i++){
+      const cols = parseCsvRow(rows[i]);
+      const type = cols[0];
+      if (type === "team") {
+        const teamId = get(cols,"teamId") || uid();
+        const name = stripQuotes(get(cols,"teamName"));
+        const wins = parseInt(get(cols,"wins")||"0",10);
+        const losses = parseInt(get(cols,"losses")||"0",10);
+        const divisionName = stripQuotes(get(cols,"division"));
+        let divisionId = "";
+        if (divisionName) {
+          let div = state.divisions.find(d => d.name === divisionName);
+          if (!div) { div = {id:uid(), name:divisionName}; state.divisions.push(div); }
+          divisionId = div.id;
+        }
+        let t = state.teams.find(x => x.id === teamId);
+        if (!t) {
+          t = { id: teamId, name, city:"", divisionId, logoDataUrl:"", wins, losses, trophies: Number(get(cols,"trophies")||0), history: [], games: [], createdAt: Date.now() };
+          state.teams.push(t);
+        } else {
+          t.name = name; t.wins = wins; t.losses = losses; t.divisionId = divisionId;
+        }
+      } else if (type === "game") {
+        const teamId = get(cols,"teamId"), opponentId = get(cols,"opponentId");
+        const teamScore = parseInt(get(cols,"teamScore")||"0",10);
+        const opponentScore = parseInt(get(cols,"opponentScore")||"0",10);
+        const date = Date.parse(get(cols,"date")) || Date.now();
+        if (!teamId || !opponentId) continue;
+        const t = state.teams.find(x => x.id === teamId);
+        const o = state.teams.find(x => x.id === opponentId);
+        if (!t || !o) continue;
+        const gId = uid();
+        const gameA = { id: gId, teamId, opponentId, teamScore, opponentScore, date };
+        const gameB = { id: gId, teamId: opponentId, opponentId: teamId, teamScore: opponentScore, opponentScore: teamScore, date };
+        t.games = t.games || []; o.games = o.games || [];
+        t.games.push(gameA); o.games.push(gameB);
+        if (teamScore > opponentScore) { t.wins++; o.losses++; recordResult(t,"W"); recordResult(o,"L"); }
+        else if (opponentScore > teamScore) { o.wins++; t.losses++; recordResult(t,"L"); recordResult(o,"W"); }
+      }
+    }
+    render(true); toast("CSV imported."); markUnsaved();
+  }
+  function parseCsvRow(line){
+    const res = []; let cur = ""; let inQ=false;
+    for (let i=0;i<line.length;i++){
+      const ch = line[i];
+      if (inQ) {
+        if (ch === '"' && line[i+1] === '"') { cur+='"'; i++; }
+        else if (ch === '"') { inQ = false; }
+        else { cur += ch; }
+      } else {
+        if (ch === '"') { inQ = true; }
+        else if (ch === ',') { res.push(cur); cur=""; }
+        else { cur += ch; }
+      }
+    }
+    res.push(cur);
+    return res;
+  }
+  function stripQuotes(s){ return s.replace(/^"(.*)"$/,'$1'); }
+
+  el.exportCsvBtn.addEventListener("click", exportCSV);
+  el.importCsvBtn.addEventListener("click", async () => {
+    const raw = await promptForFileText(".csv");
+    if (raw) importCSVText(raw);
+  });
+
+  async function promptForFileText(accept){
+    return new Promise(resolve => {
+      const input = document.createElement("input");
+      input.type = "file"; if (accept) input.accept = accept;
+      input.onchange = async () => {
+        const file = input.files?.[0]; if (!file) return resolve("");
+        const text = await file.text(); resolve(text);
+      };
+      input.click();
+    });
+  }
+
+  // Drag & drop logo
+  let dropFile = null;
+  el.logoDrop.addEventListener("dragover", e => { e.preventDefault(); el.logoDrop.style.borderColor = "var(--accent)"; });
+  el.logoDrop.addEventListener("dragleave", () => { el.logoDrop.style.borderColor = "var(--border)"; });
+  el.logoDrop.addEventListener("drop", e => {
+    e.preventDefault(); el.logoDrop.style.borderColor = "var(--border)";
+    const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) { dropFile = file; toast("Logo ready."); } else { toast("Drop an image file."); }
+  });
+
+  // Initialize
+  restore();
+  if (!localStorage.getItem(STORAGE_KEY)) { applyMetaToUI(); render(true); }
+
+  // Playoffs controls
+  el.regenBracketBtn.addEventListener("click", () => { generateBracket(); render(true); markUnsaved(); });
+
+  // Import CSV after load might change W/L—mark unsaved by default
+  markUnsaved();
+</script>
+</body>
+</html>
