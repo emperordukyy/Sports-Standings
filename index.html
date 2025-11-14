@@ -35,7 +35,9 @@
   .btn.danger { background: var(--danger); color: #fff; border-color: transparent; box-shadow: 0 8px 24px rgba(239,68,68,0.3); }
   .btn.ghost { background: var(--panel); }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
-  .section-title { font-size: 14px; color: var(--muted); letter-spacing: 0.3px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .panel[draggable="true"] { cursor: grab; }
+  .panel.dragging { opacity: 0.85; outline: 2px dashed var(--accent); }
+  .section-title { font-size: 14px; color: var(--muted); letter-spacing: 0.3px; padding: 12px 16px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
   .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1.6fr; } }
   .form { padding: 12px 16px 16px; display: grid; gap: 10px; }
@@ -61,12 +63,6 @@
   .row-item { background: #0c1015; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); transition: transform .22s ease, box-shadow .22s ease, background .2s ease, border-color .2s ease; position: relative; }
   [data-theme="light"] .row-item { background: #ffffff; }
   .row-item:hover { transform: translateY(-2px); box-shadow: 0 16px 28px rgba(0,0,0,0.25); }
-  .row-inner { display: grid; grid-template-columns: 44px 1.2fr 0.6fr 0.5fr 0.5fr 0.7fr 0.8fr 0.8fr 1fr; align-items: center; gap: 10px; padding: 10px 10px; }
-  @media (max-width: 900px) {
-    .thead .col-city, .thead .col-loss, .thead .col-diff { display: none; }
-    .row-inner { grid-template-columns: 44px 1fr 0.6fr 0.6fr 0.7fr 0.8fr 1fr; }
-    .col-city, .col-loss, .col-diff { display: none; }
-  }
   .team-logo { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); object-fit: cover; background: #0c1015; }
   .team-name { font-weight: 700; font-size: 15px; }
   .muted { color: var(--muted); font-size: 12px; }
@@ -107,6 +103,13 @@
   .bracket { padding: 12px; display: grid; gap: 12px; }
   .match { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: #0c1015; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
   .advance-btn { padding: 6px 10px; font-size: 13px; }
+
+  /* Schedule */
+  .schedule { padding: 12px; display: grid; gap: 10px; }
+  .round { background: #0c1015; border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .round-title { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .sched-item { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: #0e1319; border: 1px solid var(--border); }
+  .sched-item .muted { font-size: 11px; }
 </style>
 </head>
 <body>
@@ -116,7 +119,7 @@
       <div class="logo" aria-hidden="true"></div>
       <div>
         <h1>Standings Manager — Pro</h1>
-        <div class="sub">Divisions, playoffs (best-of-N), H2H, CSV, game scores, mobile-friendly.</div>
+        <div class="sub">Divisions, playoffs (best-of-N), H2H, CSV, game scores, editing, schedules, mobile-friendly.</div>
       </div>
     </div>
     <div class="toolbar">
@@ -129,9 +132,17 @@
     </div>
   </header>
 
-  <div class="grid">
-    <div class="panel">
-      <div class="section-title">Setup</div>
+  <div class="grid" id="gridRoot">
+    <!-- Setup panel -->
+    <div class="panel" id="panel-setup" draggable="true" data-panel="setup">
+      <div class="section-title">
+        <span>Setup</span>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <label class="muted" style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="enableLayoutDrag" /> Enable drag to reorder
+          </label>
+        </div>
+      </div>
       <div class="form">
         <div class="field">
           <label class="label" for="leagueName">Standings name</label>
@@ -217,18 +228,29 @@
             <input class="input" id="seasonName" placeholder="e.g., 2025" />
           </div>
         </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="label" for="gamesPerTeam">Games per team (schedule)</label>
+            <input class="input" id="gamesPerTeam" type="number" min="0" value="0" placeholder="Optional: e.g., 20" />
+          </div>
+          <div class="field" style="align-self:end;">
+            <button class="btn" id="generateScheduleBtn">Generate schedule</button>
+          </div>
+        </div>
+
         <div class="actions">
           <button class="btn success" id="addTeamBtn">Add team</button>
           <button class="btn" id="newSeasonBtn">New season</button>
+          <button class="btn" id="fullPlayoffsBtn">Generate full playoffs</button>
         </div>
       </div>
     </div>
 
-    <div class="panel">
+    <!-- Standings panel -->
+    <div class="panel" id="panel-standings" draggable="true" data-panel="standings">
       <div class="section-title">Standings</div>
-
       <div class="tabs" id="divisionTabs"></div>
-
       <div class="standings">
         <table class="table">
           <thead class="thead">
@@ -259,12 +281,34 @@
     </div>
   </div>
 
-  <div class="panel" id="playoffsPanel" style="margin-top:14px; display:none;">
-    <div class="section-title">Playoffs bracket</div>
+  <!-- Playoffs panel -->
+  <div class="panel" id="playoffsPanel" draggable="true" data-panel="playoffs" style="margin-top:14px; display:none;">
+    <div class="section-title">
+      <span>Playoffs bracket</span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="regenBracketBtn">Regenerate bracket</button>
+        <button class="btn" id="clearBracketBtn">Clear</button>
+      </div>
+    </div>
     <div class="bracket" id="bracket"></div>
     <div class="footer">
       <div class="chip"><strong>Round:</strong> <span id="roundLabel" style="margin-left:6px;">—</span></div>
-      <button class="btn" id="regenBracketBtn">Regenerate bracket</button>
+    </div>
+  </div>
+
+  <!-- Schedule panel -->
+  <div class="panel" id="schedulePanel" draggable="true" data-panel="schedule" style="margin-top:14px; display:none;">
+    <div class="section-title">
+      <span>Season schedule</span>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="exportScheduleBtn">Export schedule CSV</button>
+        <button class="btn danger" id="clearScheduleBtn">Clear schedule</button>
+      </div>
+    </div>
+    <div class="schedule" id="schedule"></div>
+    <div class="footer">
+      <div class="chip"><strong>Rounds:</strong> <span id="roundsCount" style="margin-left:6px;">0</span></div>
+      <div class="chip"><strong>Games:</strong> <span id="gamesCount" style="margin-left:6px;">0</span></div>
     </div>
   </div>
 
@@ -276,7 +320,10 @@
         <div class="team-name" id="teamModalTitle">Team</div>
         <div class="muted" id="teamModalSub">—</div>
       </div>
-      <button class="btn" id="closeModalBtn">Close</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" id="openEditTeamBtn">Edit</button>
+        <button class="btn" id="closeModalBtn">Close</button>
+      </div>
     </div>
     <div class="modal-body">
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -320,20 +367,77 @@
     </div>
   </div>
 
+  <!-- Modal: Edit team -->
+  <div class="modal" id="editTeamModal" role="dialog" aria-modal="true" aria-labelledby="editTeamTitle">
+    <div class="modal-header">
+      <div>
+        <div class="team-name" id="editTeamTitle">Edit team</div>
+        <div class="muted" id="editTeamSubtitle">—</div>
+      </div>
+      <button class="btn" id="closeEditTeamBtn">Close</button>
+    </div>
+    <div class="modal-body">
+      <div class="row">
+        <div class="field">
+          <label class="label" for="editTeamName">Team name</label>
+          <input class="input" id="editTeamName" />
+        </div>
+        <div class="field">
+          <label class="label" for="editTeamCity">City/short label</label>
+          <input class="input" id="editTeamCity" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="label" for="editDivisionSelect">Division</label>
+          <select class="select" id="editDivisionSelect"></select>
+        </div>
+        <div class="field">
+          <label class="label" for="editTrophies">Trophies</label>
+          <input class="input" id="editTrophies" type="number" min="0" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="label" for="editTeamLogo">Team logo</label>
+          <input class="file" type="file" id="editTeamLogo" accept="image/*" />
+          <div id="editLogoDrop" class="dropzone">Drag & drop logo here</div>
+        </div>
+        <div class="field" style="align-self:end;">
+          <img id="editLogoPreview" class="team-logo" alt="Logo preview" />
+        </div>
+      </div>
+      <div class="actions" style="justify-content: space-between;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="saveEditTeamBtn">Save changes</button>
+          <button class="btn ghost" id="resetLogoBtn">Remove logo</button>
+        </div>
+        <button class="btn danger" id="hardDeleteTeamBtn">Delete team</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
 <script>
   const state = {
-    meta: { name: "Untitled Standings", sort: "wins", tieBreak: "losses", theme: "dark", playoffs: "off", activeDivision: "all", seriesLength: 1, seasonName: "—", lastSavedCode: "" },
+    meta: {
+      name: "Untitled Standings", sort: "wins", tieBreak: "losses", theme: "dark", playoffs: "off",
+      activeDivision: "all", seriesLength: 1, seasonName: "—", lastSavedCode: "",
+      layout: ["setup","standings","playoffs","schedule"] // draggable panels order
+    },
     divisions: [], // {id, name}
     teams: [], // {id, name, city, divisionId, logoDataUrl, wins, losses, trophies, history[], games[], createdAt}
-    playoffs: { round: 0, matches: [] }, // matches: [{aTeamId, bTeamId, winnerId, divId, seriesWins: {[teamId]: n}, seriesLength}]
-    seasons: [] // archive: {seasonName, teamsSnapshot[], trophiesByTeamId, date}
+    playoffs: { round: 0, matches: [] }, // matches: [{aTeamId, bTeamId, winnerId, seriesWins: {[teamId]: n}, seriesLength}]
+    seasons: [], // archive: {seasonName, teamsSnapshot[], date}
+    schedule: { rounds: [] } // rounds: [{round: n, games: [{homeId, awayId}]}]
   };
 
   const el = {
     app: document.getElementById("app"),
+    gridRoot: document.getElementById("gridRoot"),
+    enableLayoutDrag: document.getElementById("enableLayoutDrag"),
     leagueName: document.getElementById("leagueName"),
     sortMode: document.getElementById("sortMode"),
     tieBreak: document.getElementById("tieBreak"),
@@ -348,8 +452,11 @@
     playoffsEnabled: document.getElementById("playoffsEnabled"),
     seriesLength: document.getElementById("seriesLength"),
     seasonName: document.getElementById("seasonName"),
+    gamesPerTeam: document.getElementById("gamesPerTeam"),
+    generateScheduleBtn: document.getElementById("generateScheduleBtn"),
     addTeamBtn: document.getElementById("addTeamBtn"),
     newSeasonBtn: document.getElementById("newSeasonBtn"),
+    fullPlayoffsBtn: document.getElementById("fullPlayoffsBtn"),
     divisionTabs: document.getElementById("divisionTabs"),
     tbody: document.getElementById("tbody"),
     leagueTitle: document.getElementById("leagueTitle"),
@@ -367,10 +474,18 @@
     bracket: document.getElementById("bracket"),
     roundLabel: document.getElementById("roundLabel"),
     regenBracketBtn: document.getElementById("regenBracketBtn"),
+    clearBracketBtn: document.getElementById("clearBracketBtn"),
+    schedulePanel: document.getElementById("schedulePanel"),
+    schedule: document.getElementById("schedule"),
+    roundsCount: document.getElementById("roundsCount"),
+    gamesCount: document.getElementById("gamesCount"),
+    exportScheduleBtn: document.getElementById("exportScheduleBtn"),
+    clearScheduleBtn: document.getElementById("clearScheduleBtn"),
     // Modal
     modalBackdrop: document.getElementById("modalBackdrop"),
     teamModal: document.getElementById("teamModal"),
     closeModalBtn: document.getElementById("closeModalBtn"),
+    openEditTeamBtn: document.getElementById("openEditTeamBtn"),
     teamModalTitle: document.getElementById("teamModalTitle"),
     teamModalSub: document.getElementById("teamModalSub"),
     modalRecord: document.getElementById("modalRecord"),
@@ -386,9 +501,24 @@
     exportTeamCsvBtn: document.getElementById("exportTeamCsvBtn"),
     deleteLastGameBtn: document.getElementById("deleteLastGameBtn"),
     deleteTeamBtn: document.getElementById("deleteTeamBtn"),
+    // Edit modal
+    editTeamModal: document.getElementById("editTeamModal"),
+    closeEditTeamBtn: document.getElementById("closeEditTeamBtn"),
+    editTeamTitle: document.getElementById("editTeamTitle"),
+    editTeamSubtitle: document.getElementById("editTeamSubtitle"),
+    editTeamName: document.getElementById("editTeamName"),
+    editTeamCity: document.getElementById("editTeamCity"),
+    editDivisionSelect: document.getElementById("editDivisionSelect"),
+    editTrophies: document.getElementById("editTrophies"),
+    editTeamLogo: document.getElementById("editTeamLogo"),
+    editLogoDrop: document.getElementById("editLogoDrop"),
+    editLogoPreview: document.getElementById("editLogoPreview"),
+    saveEditTeamBtn: document.getElementById("saveEditTeamBtn"),
+    resetLogoBtn: document.getElementById("resetLogoBtn"),
+    hardDeleteTeamBtn: document.getElementById("hardDeleteTeamBtn"),
   };
 
-  const STORAGE_KEY = "standings-manager-pro-v1";
+  const STORAGE_KEY = "standings-manager-pro-v2";
 
   function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
   function restore() {
@@ -402,6 +532,7 @@
       state.teams = Array.isArray(saved.teams) ? saved.teams : [];
       state.playoffs = saved.playoffs || { round: 0, matches: [] };
       state.seasons = Array.isArray(saved.seasons) ? saved.seasons : [];
+      state.schedule = saved.schedule || { rounds: [] };
       applyMetaToUI();
       render(true);
     } catch {}
@@ -413,6 +544,7 @@
   function dataUrlFromFile(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
   function escapeHtml(str){ if(!str) return ""; return str.replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[s])); }
   function download(filename, text) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"})); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+  function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
   // Stats helpers
   function winPct(t){ const g = t.wins + t.losses; return g === 0 ? 0 : t.wins / g; }
@@ -449,7 +581,7 @@
     if (tie === "alpha") return a.name.localeCompare(b.name);
     if (tie === "h2h") {
       const { aWins, bWins } = h2hRecord(a.id, b.id);
-      if (aWins !== bWins) return bWins - aWins; // favor who has H2H edge (b over a if bWins>aWins)
+      if (aWins !== bWins) return bWins - aWins;
     }
     return 0;
   }
@@ -457,7 +589,7 @@
 
   // Divisions
   function addDivision(name){
-    const n = name.trim();
+    const n = (name || "").trim();
     if (!n) { toast("Enter a division name."); return; }
     if (state.divisions.some(d => d.name.toLowerCase() === n.toLowerCase())) { toast("Division already exists."); return; }
     state.divisions.push({ id: uid(), name: n });
@@ -465,36 +597,56 @@
     toast("Division added."); render(true);
   }
 
-  // Playoffs with best-of-N series
-  function generateSeeds() {
-    const divisions = state.divisions.length ? state.divisions : [{id:"all", name:"All"}];
-    const seedsByDiv = {};
-    divisions.forEach(d => {
-      const teams = state.teams.filter(t => (state.divisions.length ? t.divisionId === d.id : true));
+  // Playoffs: next power-of-2 bracket with byes
+  function nextPowerOf2(n){ let p=1; while(p<n) p<<=1; return p; }
+  function generateFullSeeds(){
+    // Seeds by division if divisions exist, otherwise single pool
+    const pools = state.divisions.length ? state.divisions.map(d => ({ id:d.id, name:d.name })) : [{ id:"all", name:"All" }];
+    const seedsByPool = {};
+    pools.forEach(p => {
+      const teams = state.teams.filter(t => state.divisions.length ? t.divisionId === p.id : true);
       sortTeams(teams);
-      seedsByDiv[d.id] = teams.map(t => t.id);
+      seedsByPool[p.id] = teams.map(t => t.id);
     });
-    return seedsByDiv;
+    return seedsByPool;
   }
-  function generateBracket() {
-    const seedsByDiv = generateSeeds();
+  function pairSeeds(seeds){
+    // Standard pairing: 1 vs last, 2 vs second-last, with byes if necessary
+    const size = nextPowerOf2(seeds.length);
+    const filled = seeds.slice();
+    while (filled.length < size) filled.push(null); // byes
+    const pairs = [];
+    let i=0, j=filled.length-1;
+    while (i<j){
+      pairs.push([filled[i], filled[j]]);
+      i++; j--;
+    }
+    return pairs;
+  }
+  function generateFullBracket(){
+    const seedsByPool = generateFullSeeds();
     const matches = [];
     const seriesLength = Number(state.meta.seriesLength || 1);
-    Object.keys(seedsByDiv).forEach(divId => {
-      const seeds = seedsByDiv[divId];
-      if (seeds.length >= 2) {
-        const pairs = [];
-        if (seeds.length >= 4) { pairs.push([seeds[0], seeds[3]]); pairs.push([seeds[1], seeds[2]]); }
-        else { pairs.push([seeds[0], seeds[1]]); }
-        pairs.forEach(([a,b]) => matches.push({ aTeamId: a, bTeamId: b, winnerId: null, divId, seriesWins: {[a]:0,[b]:0}, seriesLength }));
-      }
+    Object.keys(seedsByPool).forEach(pid => {
+      const pairs = pairSeeds(seedsByPool[pid]);
+      pairs.forEach(([a,b]) => {
+        if (a && b) {
+          matches.push({ aTeamId:a, bTeamId:b, winnerId:null, seriesWins:{[a]:0,[b]:0}, seriesLength });
+        } else if (a && !b) {
+          // bye: auto advance a
+          matches.push({ aTeamId:a, bTeamId:null, winnerId:a, seriesWins:{[a]:Math.ceil(seriesLength/2)}, seriesLength });
+        } else if (!a && b) {
+          matches.push({ aTeamId:null, bTeamId:b, winnerId:b, seriesWins:{[b]:Math.ceil(seriesLength/2)}, seriesLength });
+        }
+      });
     });
     state.playoffs = { round: 1, matches };
-    toast("Bracket generated.");
+    toast("Full bracket generated.");
+    renderBracket();
   }
   function reportSeriesWin(matchIndex, winningTeamId){
     const m = state.playoffs.matches[matchIndex];
-    if (!m) return;
+    if (!m || !winningTeamId) return;
     m.seriesWins[winningTeamId] = (m.seriesWins[winningTeamId] || 0) + 1;
     const needed = Math.ceil(m.seriesLength / 2);
     if (m.seriesWins[winningTeamId] >= needed) {
@@ -505,24 +657,25 @@
     render(true);
   }
   function proceedPlayoffsIfReady(){
+    // If any match doesn't have winner, wait
     if (!state.playoffs.matches.every(x => x.winnerId)) return;
-    const byDiv = {};
-    state.playoffs.matches.forEach(mt => { byDiv[mt.divId] = byDiv[mt.divId] || []; byDiv[mt.divId].push(mt.winnerId); });
-    const nextMatches = [];
-    Object.keys(byDiv).forEach(divId => {
-      const winners = byDiv[divId];
-      if (winners.length >= 2) {
-        for (let i = 0; i < winners.length; i += 2) {
-          const a = winners[i], b = winners[i+1];
-          if (b) nextMatches.push({ aTeamId: a, bTeamId: b, winnerId: null, divId, seriesWins: {[a]:0,[b]:0}, seriesLength: Number(state.meta.seriesLength || 1) });
-        }
-      } else if (winners.length === 1) {
-        const champ = state.teams.find(t => t.id === winners[0]);
-        if (champ) { champ.trophies = (champ.trophies || 0) + 1; toast(`${champ.name} wins a trophy!`); }
-      }
-    });
-    if (nextMatches.length > 0) { state.playoffs = { round: state.playoffs.round + 1, matches: nextMatches }; }
-    else { toast("Playoffs complete."); state.playoffs.round = 0; state.playoffs.matches = []; }
+    // Group winners by "pool" not tracked; use simple next round from winners list
+    const winners = state.playoffs.matches.map(m => m.winnerId).filter(Boolean);
+    if (winners.length <= 1) {
+      const champ = state.teams.find(t => t.id === winners[0]);
+      if (champ) { champ.trophies = (champ.trophies || 0) + 1; toast(`${champ.name} wins a trophy!`); }
+      toast("Playoffs complete."); state.playoffs.round = 0; state.playoffs.matches = []; render(true); return;
+    }
+    const seriesLength = Number(state.meta.seriesLength || 1);
+    const pairs = pairSeeds(winners);
+    const nextMatches = pairs.map(([a,b]) => {
+      if (!a && !b) return null;
+      if (a && b) return { aTeamId:a, bTeamId:b, winnerId:null, seriesWins:{[a]:0,[b]:0}, seriesLength };
+      const adv = a || b;
+      return { aTeamId:adv, bTeamId:null, winnerId:adv, seriesWins:{[adv]:Math.ceil(seriesLength/2)}, seriesLength };
+    }).filter(Boolean);
+    state.playoffs = { round: state.playoffs.round + 1, matches: nextMatches };
+    renderBracket();
   }
 
   // Animation
@@ -551,7 +704,7 @@
     });
   }
 
-  // Render
+  // Render division tabs
   function buildDivisionTabs() {
     el.divisionTabs.innerHTML = "";
     const allBtn = document.createElement("button");
@@ -568,6 +721,7 @@
     });
   }
 
+  // Render
   function render(skipAnimation = false) {
     buildDivisionTabs();
     el.divisionSelect.innerHTML = "";
@@ -584,8 +738,9 @@
       const tr = document.createElement("tr");
       tr.className = "row-item";
       tr.dataset.id = team.id;
+      const logoSrc = team.logoDataUrl || "";
       tr.innerHTML = `
-        <td><img class="team-logo" alt="Logo" src="${team.logoDataUrl || ""}"></td>
+        <td><img class="team-logo" alt="Logo" src="${logoSrc}"></td>
         <td class="team-cell" data-id="${team.id}" style="cursor:pointer;">
           <div class="team-name">${escapeHtml(team.name)}</div>
           <div class="muted">${escapeHtml(team.city || "")}</div>
@@ -604,6 +759,7 @@
             <button class="icon-btn small" title="Undo win" data-action="unwin" aria-label="Undo win">−W</button>
             <button class="icon-btn small" title="Undo loss" data-action="unloss" aria-label="Undo loss">−L</button>
             <button class="icon-btn" title="Add trophy" data-action="trophy" aria-label="Add trophy">🏆</button>
+            <button class="icon-btn" title="Edit team" data-action="edit" aria-label="Edit team">✎</button>
             <button class="icon-btn remove" title="Remove team" data-action="remove" aria-label="Remove team">✕</button>
           </div>
         </td>
@@ -618,9 +774,13 @@
     el.count.textContent = String(state.teams.length);
     el.playoffsChip.textContent = state.meta.playoffs === "on" ? "On" : "Off";
 
-    // Playoffs panel
+    // Playoffs panel visibility
     el.playoffsPanel.style.display = state.meta.playoffs === "on" ? "" : "none";
     if (state.meta.playoffs === "on") renderBracket();
+
+    // Schedule panel visibility
+    el.schedulePanel.style.display = (state.schedule.rounds || []).length ? "" : "none";
+    renderSchedule();
 
     persist();
 
@@ -638,36 +798,29 @@
 
   function renderBracket(){
     el.bracket.innerHTML = "";
-    if (!state.playoffs.matches || state.playoffs.matches.length === 0) {
-      el.roundLabel.textContent = "—";
-      generateBracket();
-    }
     el.roundLabel.textContent = state.playoffs.round ? `Round ${state.playoffs.round}` : "—";
-
-    state.playoffs.matches.forEach((m, i) => {
+    (state.playoffs.matches || []).forEach((m, i) => {
       const a = state.teams.find(t => t.id === m.aTeamId);
       const b = state.teams.find(t => t.id === m.bTeamId);
-      const card = document.createElement("div");
-      card.className = "match";
       const aWins = m.seriesWins[a?.id || ""] || 0;
       const bWins = m.seriesWins[b?.id || ""] || 0;
+      const card = document.createElement("div");
+      card.className = "match";
       card.innerHTML = `
         <div>
-          <div class="team-name">${escapeHtml(a?.name || "TBD")}</div>
+          <div class="team-name">${escapeHtml(a?.name || (m.aTeamId ? "TBD" : "Bye"))}</div>
           <div class="muted">Wins: ${aWins}/${m.seriesLength}</div>
         </div>
         <div style="text-align:center;">
-          <button class="btn advance-btn" data-adv="${a?.id || ""}">+ ${escapeHtml(a?.name || "A")}</button>
-          <button class="btn advance-btn" data-adv="${b?.id || ""}">+ ${escapeHtml(b?.name || "B")}</button>
+          ${a?.id ? `<button class="btn advance-btn" data-adv="${a.id}">+ ${escapeHtml(a.name)}</button>` : ""}
+          ${b?.id ? `<button class="btn advance-btn" data-adv="${b.id}">+ ${escapeHtml(b.name)}</button>` : ""}
         </div>
         <div style="text-align:right;">
-          <div class="team-name">${escapeHtml(b?.name || "TBD")}</div>
+          <div class="team-name">${escapeHtml(b?.name || (m.bTeamId ? "TBD" : "Bye"))}</div>
           <div class="muted">Wins: ${bWins}/${m.seriesLength}</div>
         </div>
       `;
-      card.querySelectorAll(".advance-btn").forEach(btn => {
-        btn.addEventListener("click", () => reportSeriesWin(i, btn.dataset.adv));
-      });
+      card.querySelectorAll(".advance-btn").forEach(btn => btn.addEventListener("click", () => reportSeriesWin(i, btn.dataset.adv)));
       el.bracket.appendChild(card);
     });
   }
@@ -682,6 +835,7 @@
     else if (action === "unwin") { if (t.wins > 0) { t.wins--; removeLast(t, "W"); } }
     else if (action === "unloss") { if (t.losses > 0) { t.losses--; removeLast(t, "L"); } }
     else if (action === "trophy") { t.trophies = (t.trophies || 0) + 1; toast("Trophy added."); }
+    else if (action === "edit") { openEditTeamModal(id); return; }
     else if (action === "remove") { state.teams = state.teams.filter(x => x.id !== id); toast("Team removed."); }
     render();
   }
@@ -720,8 +874,9 @@
     el.modalBackdrop.classList.remove("show");
     el.teamModal.classList.remove("show");
   }
-  el.modalBackdrop.addEventListener("click", closeTeamModal);
+  el.modalBackdrop.addEventListener("click", () => { closeTeamModal(); closeEditTeamModal(); });
   el.closeModalBtn.addEventListener("click", closeTeamModal);
+  el.openEditTeamBtn.addEventListener("click", () => { if (modalTeamId) openEditTeamModal(modalTeamId); });
 
   function renderGameHistory(team){
     el.gameList.innerHTML = "";
@@ -730,7 +885,7 @@
       const empty = document.createElement("div"); empty.className = "muted"; empty.textContent = "No games yet.";
       el.gameList.appendChild(empty); return;
     }
-    games.forEach((g, idx) => {
+    games.forEach((g) => {
       const opp = state.teams.find(x => x.id === g.opponentId);
       const w = g.teamScore > g.opponentScore;
       const item = document.createElement("div");
@@ -761,7 +916,7 @@
 
     if (ts > os) { team.wins++; opp.losses++; recordResult(team, "W"); recordResult(opp, "L"); }
     else if (os > ts) { opp.wins++; team.losses++; recordResult(team, "L"); recordResult(opp, "W"); }
-    else { toast("Tie recorded as no change to W/L."); } // ties not changing W/L; adjust if needed
+    else { toast("Tie recorded as no change to W/L."); }
 
     render(true);
     renderGameHistory(team);
@@ -782,11 +937,9 @@
     if (!t || !t.games || t.games.length === 0) { toast("No games to delete."); return; }
     const last = t.games[t.games.length - 1];
     const opp = state.teams.find(x => x.id === last.opponentId);
-    // Roll back W/L
     const tw = last.teamScore > last.opponentScore;
     if (tw) { t.wins = Math.max(0, t.wins - 1); opp.losses = Math.max(0, opp.losses - 1); removeLast(t, "W"); removeLast(opp, "L"); }
     else if (last.opponentScore > last.teamScore) { t.losses = Math.max(0, t.losses - 1); opp.wins = Math.max(0, opp.wins - 1); removeLast(t, "L"); removeLast(opp, "W"); }
-    // Remove twin game entries
     t.games.pop();
     if (opp && opp.games) {
       const idx = opp.games.findIndex(g => g.id === last.id);
@@ -800,13 +953,97 @@
     const t = state.teams.find(x => x.id === modalTeamId);
     if (!t) return;
     if (!confirm(`Delete ${t.name}? This removes games and stats.`)) return;
-    // Remove mirrored games from opponents
     (t.games || []).forEach(g => {
       const opp = state.teams.find(x => x.id === g.opponentId);
       if (opp && opp.games) { const idx = opp.games.findIndex(og => og.id === g.id); if (idx >= 0) opp.games.splice(idx, 1); }
     });
     state.teams = state.teams.filter(x => x.id !== modalTeamId);
     closeTeamModal(); render(); toast("Team deleted.");
+  });
+
+  // Edit team modal
+  let editTeamId = null;
+  let editDropFile = null;
+  function openEditTeamModal(teamId){
+    editTeamId = teamId;
+    const t = state.teams.find(x => x.id === teamId);
+    if (!t) return;
+    el.editTeamTitle.textContent = `Edit: ${t.name}`;
+    el.editTeamSubtitle.textContent = `${t.city || "—"} • ${getDivisionName(t.divisionId) || "—"}`;
+    el.editTeamName.value = t.name;
+    el.editTeamCity.value = t.city || "";
+    el.editTrophies.value = t.trophies || 0;
+    el.editLogoPreview.src = t.logoDataUrl || "";
+    // Build division select
+    el.editDivisionSelect.innerHTML = "";
+    const noDivOpt = document.createElement("option"); noDivOpt.value = ""; noDivOpt.textContent = "No division"; el.editDivisionSelect.appendChild(noDivOpt);
+    state.divisions.forEach(d => { const opt = document.createElement("option"); opt.value = d.id; opt.textContent = d.name; el.editDivisionSelect.appendChild(opt); });
+    el.editDivisionSelect.value = t.divisionId || "";
+
+    el.modalBackdrop.classList.add("show");
+    el.editTeamModal.classList.add("show");
+  }
+  function closeEditTeamModal(){
+    editTeamId = null; editDropFile = null;
+    el.editTeamModal.classList.remove("show");
+    // Keep backdrop only if team modal is open too
+    if (!el.teamModal.classList.contains("show")) el.modalBackdrop.classList.remove("show");
+  }
+  el.closeEditTeamBtn.addEventListener("click", closeEditTeamModal);
+
+  el.editLogoDrop.addEventListener("dragover", e => { e.preventDefault(); el.editLogoDrop.style.borderColor = "var(--accent)"; });
+  el.editLogoDrop.addEventListener("dragleave", () => { el.editLogoDrop.style.borderColor = "var(--border)"; });
+  el.editLogoDrop.addEventListener("drop", e => {
+    e.preventDefault(); el.editLogoDrop.style.borderColor = "var(--border)";
+    const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) { editDropFile = file; toast("Logo ready."); previewEditLogoFile(file); } else { toast("Drop an image file."); }
+  });
+  el.editTeamLogo.addEventListener("change", () => {
+    const file = el.editTeamLogo.files?.[0]; if (file) { editDropFile = file; previewEditLogoFile(file); }
+  });
+  async function previewEditLogoFile(file){
+    try {
+      const du = await dataUrlFromFile(file);
+      el.editLogoPreview.src = du;
+    } catch {}
+  }
+
+  el.resetLogoBtn.addEventListener("click", () => {
+    const t = state.teams.find(x => x.id === editTeamId);
+    if (!t) return;
+    t.logoDataUrl = ""; el.editLogoPreview.src = "";
+    editDropFile = null; el.editTeamLogo.value = "";
+    toast("Logo removed."); render(true); markUnsaved();
+  });
+  el.hardDeleteTeamBtn.addEventListener("click", () => {
+    if (!editTeamId) return;
+    const t = state.teams.find(x => x.id === editTeamId);
+    if (!t) return;
+    if (!confirm(`Delete ${t.name}? This removes games and stats.`)) return;
+    (t.games || []).forEach(g => {
+      const opp = state.teams.find(x => x.id === g.opponentId);
+      if (opp && opp.games) { const idx = opp.games.findIndex(og => og.id === g.id); if (idx >= 0) opp.games.splice(idx, 1); }
+    });
+    state.teams = state.teams.filter(x => x.id !== editTeamId);
+    closeEditTeamModal(); closeTeamModal(); render(); toast("Team deleted.");
+  });
+
+  el.saveEditTeamBtn.addEventListener("click", async () => {
+    const t = state.teams.find(x => x.id === editTeamId);
+    if (!t) return;
+    const name = el.editTeamName.value.trim();
+    if (!name) { toast("Enter a team name."); el.editTeamName.focus(); return; }
+    t.name = name;
+    t.city = el.editTeamCity.value.trim();
+    t.trophies = clamp(parseInt(el.editTrophies.value || "0", 10), 0, 1e9);
+    t.divisionId = el.editDivisionSelect.value || "";
+    if (editDropFile) {
+      try { if (editDropFile.size > 1024 * 1024) toast("Logo is large; compress for faster loads."); t.logoDataUrl = await dataUrlFromFile(editDropFile); }
+      catch { /* keep existing */ }
+    }
+    toast("Team updated.");
+    render(true); markUnsaved();
+    // Update team modal if open
+    if (modalTeamId === editTeamId && el.teamModal.classList.contains("show")) openTeamModal(editTeamId);
   });
 
   // UI bindings
@@ -817,7 +1054,7 @@
 
   el.playoffsEnabled.addEventListener("change", () => {
     state.meta.playoffs = el.playoffsEnabled.value;
-    if (state.meta.playoffs === "on") generateBracket(); else { state.playoffs = { round: 0, matches: [] }; }
+    if (state.meta.playoffs === "on") { generateFullBracket(); } else { state.playoffs = { round: 0, matches: [] }; }
     render(true); markUnsaved();
   });
   el.seriesLength.addEventListener("change", () => { state.meta.seriesLength = parseInt(el.seriesLength.value, 10); render(true); markUnsaved(); });
@@ -829,11 +1066,11 @@
     const trophies = Math.max(0, parseInt(el.trophyCount.value || "0", 10));
     if (!name) { toast("Enter a team name."); el.teamName.focus(); return; }
     let logoDataUrl = "";
-    const file = el.teamLogo.files?.[0] || dropFile;
+    const file = el.teamLogo.files?.[0] || addDropFile;
     if (file) { try { if (file.size > 1024 * 1024) toast("Logo is large; compress for faster loads."); logoDataUrl = await dataUrlFromFile(file); } catch { logoDataUrl = ""; } }
     const team = { id: uid(), name, city, divisionId, logoDataUrl, wins: 0, losses: 0, trophies, history: [], games: [], createdAt: Date.now() };
     state.teams.push(team);
-    el.teamName.value = ""; el.teamCity.value = ""; el.teamLogo.value = ""; el.trophyCount.value = "0"; dropFile = null;
+    el.teamName.value = ""; el.teamCity.value = ""; el.teamLogo.value = ""; el.trophyCount.value = "0"; addDropFile = null;
     toast("Team added."); render(); markUnsaved();
   });
 
@@ -852,6 +1089,10 @@
     render(true); markUnsaved();
   });
 
+  el.fullPlayoffsBtn.addEventListener("click", () => {
+    generateFullBracket(); state.meta.playoffs = "on"; render(true); markUnsaved();
+  });
+
   function applyMetaToUI(){
     el.app.setAttribute("data-theme", state.meta.theme || "dark");
     el.leagueName.value = state.meta.name || "";
@@ -861,6 +1102,8 @@
     el.seriesLength.value = String(state.meta.seriesLength || 1);
     el.seasonName.value = state.meta.seasonName || "—";
     el.seasonLabel.textContent = `Season ${state.meta.seasonName || "—"}`;
+    // apply layout order
+    applyLayout();
   }
   el.themeToggle.addEventListener("click", () => { state.meta.theme = (state.meta.theme === "dark") ? "light" : "dark"; el.app.setAttribute("data-theme", state.meta.theme); persist(); });
 
@@ -893,7 +1136,8 @@
         activeDivision: parsed.meta.activeDivision || "all",
         seriesLength: Number(parsed.meta.seriesLength || 1),
         seasonName: parsed.meta.seasonName || "—",
-        lastSavedCode: parsed.meta.lastSavedCode || ""
+        lastSavedCode: parsed.meta.lastSavedCode || "",
+        layout: Array.isArray(parsed.meta.layout) ? parsed.meta.layout : ["setup","standings","playoffs","schedule"]
       };
       state.divisions = Array.isArray(parsed.divisions) ? parsed.divisions.map(d => ({ id: d.id || uid(), name: d.name || "Division" })) : [];
       state.teams = (parsed.teams || []).map(t => ({
@@ -913,6 +1157,7 @@
       }));
       state.playoffs = parsed.playoffs || { round: 0, matches: [] };
       state.seasons = Array.isArray(parsed.seasons) ? parsed.seasons : [];
+      state.schedule = parsed.schedule || { rounds: [] };
       applyMetaToUI(); render(true); persist(); toast("Save loaded."); markUnsaved();
     } catch { toast("Invalid save code."); }
   }
@@ -1022,23 +1267,196 @@
     });
   }
 
-  // Drag & drop logo
-  let dropFile = null;
+  // Drag & drop logo (add team)
+  let addDropFile = null;
   el.logoDrop.addEventListener("dragover", e => { e.preventDefault(); el.logoDrop.style.borderColor = "var(--accent)"; });
   el.logoDrop.addEventListener("dragleave", () => { el.logoDrop.style.borderColor = "var(--border)"; });
   el.logoDrop.addEventListener("drop", e => {
     e.preventDefault(); el.logoDrop.style.borderColor = "var(--border)";
-    const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) { dropFile = file; toast("Logo ready."); } else { toast("Drop an image file."); }
+    const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) { addDropFile = file; toast("Logo ready."); }
+    else { toast("Drop an image file."); }
+  });
+
+  // Playoffs controls
+  el.regenBracketBtn.addEventListener("click", () => { generateFullBracket(); render(true); markUnsaved(); });
+  el.clearBracketBtn.addEventListener("click", () => { state.playoffs = { round: 0, matches: [] }; render(true); markUnsaved(); });
+
+  // Schedule generator (balanced round-robin; per-division if divisions exist)
+  function generateSchedule(){
+    const nTeams = state.teams.length;
+    const perTeam = clamp(parseInt(el.gamesPerTeam.value || "0", 10), 0, 200);
+    if (!nTeams || perTeam <= 0) { toast("Enter games per team and add teams."); return; }
+    const groups = state.divisions.length
+      ? state.divisions.map(d => state.teams.filter(t => t.divisionId === d.id))
+      : [state.teams.slice()];
+    const rounds = [];
+    let totalGames = 0;
+
+    function roundRobin(teams, repeats){
+      // Use circle method; handle odd teams by adding a bye (null)
+      const copy = teams.slice();
+      if (copy.length % 2 === 1) copy.push(null);
+      const half = copy.length / 2;
+      const schedule = [];
+      for (let r=0; r<copy.length-1; r++){
+        const games = [];
+        for (let i=0;i<half;i++){
+          const home = copy[i];
+          const away = copy[copy.length-1-i];
+          if (home && away) games.push({homeId:home.id, awayId:away.id});
+        }
+        schedule.push(games);
+        // rotate
+        const fixed = copy[0];
+        const rest = copy.slice(1);
+        rest.unshift(rest.pop());
+        copy.splice(1, rest.length, ...rest);
+        copy[0] = fixed;
+      }
+      // repeat as needed
+      const out = [];
+      for (let k=0;k<repeats;k++){
+        schedule.forEach((games, idx) => out.push({ round: out.length+1, games: games.slice() }));
+      }
+      return out;
+    }
+
+    groups.forEach(group => {
+      if (group.length <= 1) return;
+      // each round-robin yields (group.length - 1) rounds; each team plays (group.length - 1) games per full round-robin
+      const perRR = group.length - 1;
+      const repeats = Math.max(1, Math.round(perTeam / perRR));
+      const rr = roundRobin(group, repeats);
+      rr.forEach(r => rounds.push(r));
+    });
+
+    // If no divisions, rounds as generated; if divisions exist, interleave rounds to avoid overload
+    // Simple sort by number of games descending then assign round numbers sequentially
+    rounds.forEach((r, idx) => r.round = idx + 1);
+
+    totalGames = rounds.reduce((acc, r) => acc + r.games.length, 0);
+    state.schedule = { rounds };
+    toast("Schedule generated.");
+    renderSchedule();
+    render(true);
+    markUnsaved();
+  }
+
+  function renderSchedule(){
+    el.schedule.innerHTML = "";
+    const rounds = state.schedule.rounds || [];
+    if (!rounds.length) { el.roundsCount.textContent = "0"; el.gamesCount.textContent = "0"; return; }
+    let gameCount = 0;
+    rounds.forEach(r => {
+      const rd = document.createElement("div");
+      rd.className = "round";
+      const title = document.createElement("div");
+      title.className = "round-title";
+      title.textContent = `Round ${r.round}`;
+      rd.appendChild(title);
+      r.games.forEach(g => {
+        gameCount++;
+        const home = state.teams.find(t => t.id === g.homeId);
+        const away = state.teams.find(t => t.id === g.awayId);
+        const item = document.createElement("div");
+        item.className = "sched-item";
+        item.innerHTML = `
+          <div>${escapeHtml(home?.name || "TBD")}</div>
+          <div class="muted">vs</div>
+          <div style="text-align:right;">${escapeHtml(away?.name || "TBD")}</div>
+        `;
+        rd.appendChild(item);
+      });
+      el.schedule.appendChild(rd);
+    });
+    el.roundsCount.textContent = String(rounds.length);
+    el.gamesCount.textContent = String(gameCount);
+  }
+
+  el.generateScheduleBtn.addEventListener("click", generateSchedule);
+  el.clearScheduleBtn.addEventListener("click", () => { state.schedule = { rounds: [] }; renderSchedule(); render(true); markUnsaved(); });
+  el.exportScheduleBtn.addEventListener("click", () => {
+    const lines = [];
+    lines.push("round,homeId,homeName,awayId,awayName");
+    (state.schedule.rounds || []).forEach(r => {
+      r.games.forEach(g => {
+        const h = state.teams.find(t => t.id === g.homeId);
+        const a = state.teams.find(t => t.id === g.awayId);
+        lines.push(`${r.round},${g.homeId},"${(h?.name||"").replace(/"/g,'""')}",${g.awayId},"${(a?.name||"").replace(/"/g,'""')}"`);
+      });
+    });
+    download(`${(state.meta.name||'standings').replace(/\s+/g,'_')}_schedule.csv`, lines.join("\n"));
+  });
+
+  // Layout drag & drop (optional)
+  const panels = ["panel-setup","panel-standings","playoffsPanel","schedulePanel"];
+  function applyLayout(){
+    const order = state.meta.layout || ["setup","standings","playoffs","schedule"];
+    const idMap = { setup:"panel-setup", standings:"panel-standings", playoffs:"playoffsPanel", schedule:"schedulePanel" };
+    order.forEach(key => {
+      const id = idMap[key];
+      const node = document.getElementById(id);
+      if (node) el.gridRoot.appendChild(node);
+    });
+  }
+  function setDraggable(enabled){
+    panels.forEach(pid => {
+      const node = document.getElementById(pid);
+      if (!node) return;
+      node.setAttribute("draggable", enabled ? "true" : "false");
+      node.classList.toggle("dragging", false);
+    });
+  }
+  el.enableLayoutDrag.addEventListener("change", () => {
+    const enabled = el.enableLayoutDrag.checked;
+    setDraggable(enabled);
+    toast(enabled ? "Drag enabled. Move panels to reorder." : "Drag disabled.");
+  });
+
+  let dragSrc = null;
+  panels.forEach(pid => {
+    const node = document.getElementById(pid);
+    if (!node) return;
+    node.addEventListener("dragstart", (e) => {
+      if (!el.enableLayoutDrag.checked) { e.preventDefault(); return; }
+      dragSrc = node;
+      node.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    node.addEventListener("dragend", () => { node.classList.remove("dragging"); dragSrc = null; persist(); });
+    node.addEventListener("dragover", (e) => {
+      if (!el.enableLayoutDrag.checked) return;
+      e.preventDefault();
+      const rect = node.getBoundingClientRect();
+      const mid = rect.top + rect.height/2;
+      const after = e.clientY > mid;
+      if (dragSrc && dragSrc !== node) {
+        el.gridRoot.insertBefore(dragSrc, after ? node.nextSibling : node);
+      }
+    });
+  });
+
+  function updateLayoutFromDOM(){
+    const mapIdToKey = { "panel-setup":"setup", "panel-standings":"standings", "playoffsPanel":"playoffs", "schedulePanel":"schedule" };
+    const kids = Array.from(el.gridRoot.children).map(ch => ch.id).filter(id => mapIdToKey[id]);
+    state.meta.layout = kids.map(id => mapIdToKey[id]);
+  }
+  el.gridRoot.addEventListener("drop", () => { updateLayoutFromDOM(); markUnsaved(); });
+
+  // Reset button
+  el.resetBtn.addEventListener("click", () => {
+    if (!confirm("Reset all data? This will clear teams, divisions, playoffs, schedule.")) return;
+    state.divisions = [];
+    state.teams = [];
+    state.playoffs = { round: 0, matches: [] };
+    state.schedule = { rounds: [] };
+    toast("All data cleared.");
+    render(true); markUnsaved();
   });
 
   // Initialize
   restore();
   if (!localStorage.getItem(STORAGE_KEY)) { applyMetaToUI(); render(true); }
-
-  // Playoffs controls
-  el.regenBracketBtn.addEventListener("click", () => { generateBracket(); render(true); markUnsaved(); });
-
-  // Import CSV after load might change W/L—mark unsaved by default
   markUnsaved();
 </script>
 </body>
